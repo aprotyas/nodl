@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import os
 from pathlib import Path
 from typing import Iterable, List, Tuple
 
 from ament_index_python.packages import get_package_share_directory
+from ament_index_python.resources import get_resource
 
 from nodl._parsing._parsing import _parse_multiple
 from nodl.errors import ExecutableNotFoundError, NoNoDLFilesError
@@ -25,6 +26,7 @@ from .types import Node
 
 
 _FILE_EXTENSION = '.nodl.xml'
+_RESOURCE_TYPE = 'nodl_desc'
 
 
 def _get_nodl_files_from_package_share(*, package_name: str) -> List[Path]:
@@ -33,13 +35,23 @@ def _get_nodl_files_from_package_share(*, package_name: str) -> List[Path]:
     :raises PackageNotFoundError: if package is not found
     :raises NoNoDLFilesError: if no .nodl.xml files are in package share directory
     """
-    package_share_directory = Path(get_package_share_directory(package_name))
-    nodl_paths = [
-        path for path in package_share_directory.glob('*' + _FILE_EXTENSION) if path.is_file()
-    ]
+    # Approach: Search the resource index for `nodl_desc` resources
+    nodl_files, prefix_path = get_resource(_RESOURCE_TYPE, package_name)
+    nodl_paths = [Path(os.path.join(prefix_path, nodl_file)) for nodl_file in nodl_files.splitlines()]
     if not nodl_paths:
         raise NoNoDLFilesError(package_name)
     return nodl_paths
+
+    # Alternate approach: Walk the package's share directory
+    # package_share_directory = Path(get_package_share_directory(package_name))
+    # nodl_paths = []
+    # for (path, _, _) in os.walk(str(package_share_directory)):
+    #     for nodl_file_path in Path(path).glob('*' + _FILE_EXTENSION):
+    #         if nodl_file_path.is_file():
+    #             nodl_paths.append(nodl_file_path)
+    # if not nodl_paths:
+    #     raise NoNoDLFilesError(package_name)
+    # return nodl_paths
 
 
 def _get_nodes_from_package(*, package_name: str) -> List[Node]:
